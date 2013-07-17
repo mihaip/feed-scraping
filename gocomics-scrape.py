@@ -3,6 +3,7 @@
 import formatter
 import htmllib
 import sys
+import time
 import urllib
 import xml.dom.minidom
 from xml.sax.saxutils import escape as xml_escape
@@ -41,7 +42,7 @@ def get_item_image_url(item_url):
           self.image_url = None
 
       def do_img(self, attrs):
-        if ('class', 'strip') in attrs and 'onload' in dict(attrs):
+        if ('class', 'strip') in attrs:
           self.image_url = dict(attrs).get('src', None)
 
   parser = ImageLinkParser()
@@ -58,14 +59,30 @@ print '<?xml version="1.0" encoding="utf-8"?>'
 print '<feed xmlns="http://www.w3.org/2005/Atom">'
 print '<title>%s</title>' % xml_escape(title)
 
+item_count = 0
 for item_title, item_url in items:
   item_image_url = get_item_image_url(item_url)
+  if not item_image_url:
+    continue
+  item_count += 1
   print '<entry>'
   print '  <title>%s</title>' % xml_escape(item_title)
+  print '  <id>%s</id>' % item_url
   print '  <link rel="alternate" href="%s" type="text/html"/>' % xml_escape(item_url)
   print '  <content type="xhtml">'
   print '    <div xmlns="%s"><img src="%s"/></div>' % (XHTML_NS, xml_escape(item_image_url))
   print '  </content>'
   print '</entry>'
+
+if not item_count:
+  print '<entry>'
+  print '  <title>Could not scrape feed</title>'
+  print '  <id>tag:persistent.info,2013:gocomics-scrape-%d</id>' % int(time.time())
+  print '  <link rel="alternate" href="https://github.com/mihaip/gocomics-scrape" type="text/html"/>'
+  print '  <content type="html">'
+  print '    Could not scrape the feed. Check the GitHub repository for updates.'
+  print '  </content>'
+  print '</entry>'
+
 
 print '</feed>'
