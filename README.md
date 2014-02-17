@@ -1,3 +1,5 @@
+## gocomics-scrape.py
+
 GoComics.com (which recently merged with Comics.com) changed their RSS feeds to contain at best links only, and at worst links and ads, but no comic.
 
 This script fetches a GoComics.com feed URL and then for each item looks up the the actual comic image (conveniently emebdded in a `<link>` tag) and outputs a minimal Atom feed with the image. Sample usage:
