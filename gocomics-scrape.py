@@ -78,7 +78,7 @@ if not item_count:
   print '<entry>'
   print '  <title>Could not scrape feed</title>'
   print '  <id>tag:persistent.info,2013:gocomics-scrape-%d</id>' % int(time.time())
-  print '  <link rel="alternate" href="https://github.com/mihaip/gocomics-scrape" type="text/html"/>'
+  print '  <link rel="alternate" href="https://github.com/mihaip/feed-scraping" type="text/html"/>'
   print '  <content type="html">'
   print '    Could not scrape the feed. Check the GitHub repository for updates.'
   print '  </content>'
