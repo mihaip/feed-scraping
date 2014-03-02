@@ -69,6 +69,7 @@ for puppy in puppies:
 print '<?xml version="1.0" encoding="utf-8"?>'
 print '<feed xmlns="http://www.w3.org/2005/Atom">'
 print '<title>The Daily Puppy (Unofficial)</title>'
+print '<link rel="alternate" type="text/html" href="http://www.dailypuppy.com/"/>'
 
 if puppies:
   for puppy in puppies:
