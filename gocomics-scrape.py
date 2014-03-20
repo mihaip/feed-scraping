@@ -29,7 +29,7 @@ def get_feed_data(feed_url):
   item_nodes = feed_dom.getElementsByTagName('item')
   for item_node in item_nodes:
     item_title = item_node.getElementsByTagName('title')[0].firstChild.data
-    item_link = item_node.getElementsByTagNameNS(FEEDBURNER_NS, 'origLink')[0].firstChild.data
+    item_link  = item_node.getElementsByTagName('guid')[0].firstChild.data
     items.append((item_title, item_link))
   feed_file.close()
 
