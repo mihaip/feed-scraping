@@ -43,7 +43,7 @@ def get_item_image_url(item_url):
           self.image_url = None
 
       def do_img(self, attrs):
-        if ('class', 'strip') in attrs:
+        if ('title', 'The Dilbert Strip for') in attrs:
           self.image_url = dict(attrs).get('src', None)
 
   parser = ImageLinkParser()
