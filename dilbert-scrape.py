@@ -43,8 +43,11 @@ def get_item_image_url(item_url):
           self.image_url = None
 
       def do_img(self, attrs):
-        if ('class', 'strip') in attrs:
-          self.image_url = dict(attrs).get('src', None)
+        for name, value in  attrs:
+          if name == 'title':
+            img_holder = dict(attrs).get('src', None)
+            if img_holder.endswith("strip.zoom.gif"):
+              self.image_url = 'http://dilbert.com' +  img_holder
 
   parser = ImageLinkParser()
   item_file = open_url(item_url)
@@ -78,7 +81,7 @@ for item_title, item_url in items:
 if not item_count:
   print '<entry>'
   print '  <title>Could not scrape feed</title>'
-  print '  <id>tag:persistent.info,2013:gocomics-scrape-%d</id>' % int(time.time())
+  print '  <id>tag:persistent.info,2014:dilbert-scrape-%d</id>' % int(time.time())
   print '  <link rel="alternate" href="https://github.com/mihaip/feed-scraping" type="text/html"/>'
   print '  <content type="html">'
   print '    Could not scrape the feed. Check the GitHub repository for updates.'
