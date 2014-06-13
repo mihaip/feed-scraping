@@ -9,6 +9,8 @@ This script fetches a GoComics.com feed URL and then for each item looks up the 
 
 I've put something like that in a cron job that runs once an hour.
 
+The script also handles the [dilbert.com](http://dilbert.com) [RSS feed](http://feed.dilbert.com/dilbert/daily_strip), which uses a slightly different format.
+
 Incidentally, Frazz is the comic that I wanted this for, if you're looking for a full content feed for Frazz it can be found at [http://persistent.info/scraped/frazz.xml](http://persistent.info/scraped/frazz.xml).
 
 ## daily-puppy-scrape.py

@@ -52,8 +52,16 @@ def get_item_image_url(item_url):
           self.image_url = None
 
       def do_img(self, attrs):
+        # Normal gocomics.com strips
         if ('class', 'strip') in attrs:
           self.image_url = dict(attrs).get('src', None)
+          return
+        # Dilbert.com
+        for name, value in attrs:
+          if name == 'title':
+            image_path = dict(attrs).get('src', None)
+            if image_path.endswith('strip.zoom.gif'):
+              self.image_url = 'http://dilbert.com' + image_path
 
   parser = ImageLinkParser()
   item_file = open_url(item_url)
