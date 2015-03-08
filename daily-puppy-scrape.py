@@ -66,35 +66,43 @@ puppies = get_puppies()
 for puppy in puppies:
   fetch_puppy_data(puppy)
 
-print '<?xml version="1.0" encoding="utf-8"?>'
-print '<feed xmlns="http://www.w3.org/2005/Atom">'
-print '<title>The Daily Puppy (Unofficial)</title>'
-print '<link rel="alternate" type="text/html" href="http://www.dailypuppy.com/"/>'
+feed = u''
+feed += u'<?xml version="1.0" encoding="utf-8"?>\n'
+feed += u'<feed xmlns="http://www.w3.org/2005/Atom">\n'
+feed += u'<title>The Daily Puppy (Unofficial)</title>\n'
+feed += u'<link rel="alternate" type="text/html" ' \
+    'href="http://www.dailypuppy.com/"/>\n'
 
 if puppies:
   for puppy in puppies:
-    print '<entry>'
-    print '  <title>%s</title>' % xml_escape(puppy.title)
-    print '  <id>%s</id>' % xml_escape(puppy.data_url)
-    print '  <link rel="alternate" href="%s" type="text/html"/>' % xml_escape(puppy.html_url)
-    print '  <updated>%sZ</updated>' % xml_escape(puppy.date.isoformat())
-    print '  <content type="xhtml">'
-    print '    <div xmlns="%s">' % _XHTML_NS
-    print '    <p><img src="%s"/></p>' % xml_escape(puppy.pictures[0])
-    print '    <p>%s</p>' % xml_escape(puppy.description)
+    feed += u'<entry>\n'
+    feed += u'  <title>%s</title>\n' % xml_escape(puppy.title)
+    feed += u'  <id>%s</id>\n' % xml_escape(puppy.data_url)
+    feed += u'  <link rel="alternate" href="%s" type="text/html"/>\n' % \
+        xml_escape(puppy.html_url)
+    feed += u'  <updated>%sZ</updated>\n' % xml_escape(puppy.date.isoformat())
+    feed += u'  <content type="xhtml">\n'
+    feed += u'    <div xmlns="%s">\n' % _XHTML_NS
+    feed += u'    <p><img src="%s"/></p>\n' % xml_escape(puppy.pictures[0])
+    feed += u'    <p>%s</p>\n' % xml_escape(puppy.description)
     for picture in puppy.pictures[1:]:
-      print '    <p><img src="%s"/></p>' % xml_escape(picture)
-    print '    </div>'
-    print '  </content>'
-    print '</entry>'
+      feed += u'    <p><img src="%s"/></p>\n' % xml_escape(picture)
+    feed += u'    </div>\n'
+    feed += u'  </content>\n'
+    feed += u'</entry>\n'
 else:
-  print '<entry>'
-  print '  <title>Could not scrape feed</title>'
-  print '  <id>tag:persistent.info,2013:daily-puppy-scrape-%d</id>' % int(time.time())
-  print '  <link rel="alternate" href="https://github.com/mihaip/feed-scraping" type="text/html"/>'
-  print '  <content type="html">'
-  print '    Could not scrape the feed. Check the GitHub repository for updates.'
-  print '  </content>'
-  print '</entry>'
+  feed += u'<entry>\n'
+  feed += u'  <title>Could not scrape feed</title>\n'
+  feed += u'  <id>tag:persistent.info,2013:daily-puppy-scrape-%d</id>\n' % \
+        int(time.time())
+  feed += u'  <link rel="alternate" ' \
+        'href="https://github.com/mihaip/feed-scraping" type="text/html"/>\n'
+  feed += u'  <content type="html">\n'
+  feed += u'    Could not scrape the feed. Check the GitHub repository for ' \
+        'updates.\n'
+  feed += u'  </content>\n'
+  feed += u'</entry>\n'
 
-print '</feed>'
+feed += u'</feed>\n'
+
+print feed.encode('utf-8')
