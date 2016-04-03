@@ -7,7 +7,7 @@ import xml.dom.minidom
 from xml.sax.saxutils import escape as xml_escape
 
 _BASE_URL = "http://www.dailypuppy.com/mobile/featured-puppy.php"
-_XHTML_NS = 'http://www.w3.org/1999/xhtml'
+_XHTML_NS = "http://www.w3.org/1999/xhtml"
 _DATE_RE = re.compile(r"(\d{4})-(\d{2})-(\d{2})$")
 
 class Puppy(object):
@@ -21,7 +21,7 @@ class Puppy(object):
 
 def open_url(url):
   class Opener(urllib.FancyURLopener):
-      version = 'Mozilla/5.0 (compatible; Feedbot/1.0)'
+      version = "Mozilla/5.0 (compatible; Feedbot/1.0)"
   return Opener().open(url)
 
 def _get_node_text(node):
@@ -32,11 +32,11 @@ def get_puppies():
   puppies_dom = xml.dom.minidom.parse(puppies_file)
 
   puppies = []
-  puppy_nodes = puppies_dom.getElementsByTagName('item')
+  puppy_nodes = puppies_dom.getElementsByTagName("item")
   for puppy_node in puppy_nodes:
     puppies.append(Puppy(
-      title=_get_node_text(puppy_node.getElementsByTagName('title')[0]),
-      data_url=_get_node_text(puppy_node.getElementsByTagName('link')[0])))
+      title=_get_node_text(puppy_node.getElementsByTagName("title")[0]),
+      data_url=_get_node_text(puppy_node.getElementsByTagName("link")[0])))
 
   puppies_file.close()
 
@@ -47,7 +47,7 @@ def fetch_puppy_data(puppy):
   puppy_dom = xml.dom.minidom.parse(puppy_file)
 
   puppy.html_url = _get_node_text(
-    puppy_dom.getElementsByTagName('shareLink')[0])
+    puppy_dom.getElementsByTagName("shareLink")[0])
   date_match = _DATE_RE.search(puppy.html_url)
   puppy.date = datetime.datetime(
     year=int(date_match.group(1)),
@@ -55,8 +55,8 @@ def fetch_puppy_data(puppy):
     day=int(date_match.group(3)),
     hour=12)
   puppy.description = _get_node_text(
-    puppy_dom.getElementsByTagName('description')[0])
-  picture_nodes = puppy_dom.getElementsByTagName('fullres')
+    puppy_dom.getElementsByTagName("description")[0])
+  picture_nodes = puppy_dom.getElementsByTagName("fullres")
   for picture_node in picture_nodes:
     puppy.pictures.append(_get_node_text(picture_node))
 
@@ -105,4 +105,4 @@ else:
 
 feed += u'</feed>\n'
 
-print feed.encode('utf-8')
+print feed.encode("utf-8")
