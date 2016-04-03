@@ -25,7 +25,7 @@ def open_url(url):
   return Opener().open(url)
 
 def _get_node_text(node):
-  return node.firstChild.data
+  return node.firstChild.data if node.firstChild else ""
 
 def get_puppies():
   puppies_file = open_url(_BASE_URL + "?startIndex=0&count=10")
