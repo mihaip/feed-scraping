@@ -13,7 +13,7 @@ XHTML_NS = 'http://www.w3.org/1999/xhtml'
 
 def open_url(url):
   class Opener(urllib.FancyURLopener):
-      version = 'Mozilla/5.0 (compatible; Feedbot/1.0)'
+    version = 'Mozilla/5.0 (compatible; Feedbot/1.0)'
 
   return Opener().open(url)
 
@@ -50,8 +50,21 @@ def get_item_image_url(item_url):
       def __init__(self):
           htmllib.HTMLParser.__init__(self, formatter.NullFormatter())
           self.image_url = None
+          self.in_comic_picture = False
+
+      def start_picture(self, attrs):
+        if ('class', 'img-fluid item-comic-image') in attrs:
+          self.in_comic_picture = True
+
+      def end_picture(self):
+        self.in_comic_picture = False
 
       def do_img(self, attrs):
+        # Modernized gocomics.com strips with a <picture> element
+        if self.in_comic_picture:
+          if not self.image_url:
+            self.image_url = dict(attrs).get('src', None)
+          return
         # Normal gocomics.com strips
         if ('class', 'strip') in attrs:
           self.image_url = dict(attrs).get('src', None)
