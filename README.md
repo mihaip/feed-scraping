@@ -1,17 +1,14 @@
 ## gocomics-scrape.py
 
-GoComics.com (which recently merged with Comics.com) changed their RSS feeds to contain at best links only, and at worst links and ads, but no comic.
+GoComics.com (which recently merged with Comics.com) has stopped linking to or updating their RSS feeds.
 
-This script fetches a GoComics.com feed URL and then for each item looks up the the actual comic image (conveniently emebdded in a `<link>` tag) and outputs a minimal Atom feed with the image. Sample usage:
+This script fetches a GoComics.com strip homepage, generates strip URLs and then for each one looks up the the actual comic image and outputs a minimal Atom feed with the image. Sample usage:
 
-    python gocomics-scrape.py http://feeds.feedburner.com/uclick/frazz \
-        ~/www/scraped/frazz.xml
+    python gocomics-scrape.py frazz > ~/www/scraped/frazz.xml
 
 I've put something like that in a cron job that runs once an hour.
 
-The script also handles the [dilbert.com](http://dilbert.com) [RSS feed](http://feed.dilbert.com/dilbert/daily_strip), which uses a slightly different format.
-
-Incidentally, Frazz is the comic that I wanted this for, if you're looking for a full content feed for Frazz it can be found at [http://persistent.info/scraped/frazz.xml](http://persistent.info/scraped/frazz.xml).
+Incidentally, Frazz and Calvin and Hobbes are the comics that I wanted this for, so if you're looking for a full content feeds for them they can be found at [http://persistent.info/scraped/frazz.xml](http://persistent.info/scraped/frazz.xml) and [http://persistent.info/scraped/calvinandhobbes.xml](http://persistent.info/scraped/calvinandhobbes.xml).
 
 ## daily-puppy-scrape.py
 

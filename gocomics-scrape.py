@@ -1,14 +1,15 @@
 #!/usr/local/bin/python
 
+import datetime
 import formatter
 import htmllib
+import re
 import sys
 import time
 import urllib
 import xml.dom.minidom
 from xml.sax.saxutils import escape as xml_escape
 
-FEEDBURNER_NS = 'http://rssnamespace.org/feedburner/ext/1.0'
 XHTML_NS = 'http://www.w3.org/1999/xhtml'
 
 def open_url(url):
@@ -17,95 +18,98 @@ def open_url(url):
 
   return Opener().open(url)
 
-def get_feed_data(feed_url):
-  items = []
 
-  feed_file = open_url(feed_url)
-  feed_dom = xml.dom.minidom.parse(feed_file)
+class Parser(htmllib.HTMLParser):
+  def __init__(self):
+    htmllib.HTMLParser.__init__(self, formatter.NullFormatter())
+    self.title = ''
+    self.in_title = False
+    self.image_url = None
+    self.in_comic_picture = False
 
-  feed_title = feed_dom.getElementsByTagName('title')[0].firstChild.data
-  feed_title = feed_title.replace('GoComics.com - ', '')
+  def start_title(self, attrs):
+    self.in_title = True
 
-  item_nodes = feed_dom.getElementsByTagName('item')
-  for item_node in item_nodes:
-    item_title = item_node.getElementsByTagName('title')[0].firstChild.data
-    item_link = None
-    feedBurnerOrigLinks = item_node.getElementsByTagNameNS(
-        FEEDBURNER_NS, 'origLink')
-    if feedBurnerOrigLinks:
-      item_link = feedBurnerOrigLinks[0].firstChild.data
-    else:
-      guids = item_node.getElementsByTagName('guid')
-      if guids:
-        item_link = guids[0].firstChild.data
-    if not item_link:
-      continue
-    items.append((item_title, item_link))
-  feed_file.close()
+  def end_title(self):
+    self.in_title = False
 
-  return feed_title, items
+  def handle_data(self, data):
+    if self.in_title:
+      self.title += data
+      self.title = re.sub(r"\s*\|.*$", "", self.title)
 
-def get_item_image_url(item_url):
-  class ImageLinkParser(htmllib.HTMLParser):
-      def __init__(self):
-          htmllib.HTMLParser.__init__(self, formatter.NullFormatter())
-          self.image_url = None
-          self.in_comic_picture = False
+  def start_picture(self, attrs):
+    if ('class', 'img-fluid item-comic-image') in attrs:
+      self.in_comic_picture = True
 
-      def start_picture(self, attrs):
-        if ('class', 'img-fluid item-comic-image') in attrs:
-          self.in_comic_picture = True
+  def end_picture(self):
+    self.in_comic_picture = False
 
-      def end_picture(self):
-        self.in_comic_picture = False
+  def do_img(self, attrs):
+    # Modernized gocomics.com strips with a <picture> element
+    if self.in_comic_picture:
+      if not self.image_url:
+        self.image_url = dict(attrs).get('src', None)
+      return
+    # Normal gocomics.com strips
+    if ('class', 'strip') in attrs:
+      self.image_url = dict(attrs).get('src', None)
+      return
 
-      def do_img(self, attrs):
-        # Modernized gocomics.com strips with a <picture> element
-        if self.in_comic_picture:
-          if not self.image_url:
-            self.image_url = dict(attrs).get('src', None)
-          return
-        # Normal gocomics.com strips
-        if ('class', 'strip') in attrs:
-          self.image_url = dict(attrs).get('src', None)
-          return
-        # Dilbert.com
-        for name, value in attrs:
-          if name == 'title':
-            image_path = dict(attrs).get('src', None)
-            if image_path.endswith('strip.zoom.gif'):
-              self.image_url = 'http://dilbert.com' + image_path
 
-  parser = ImageLinkParser()
-  item_file = open_url(item_url)
-  parser.feed(item_file.read())
+def get_homepage_data(strip_id):
+  homepage_url = 'http://www.gocomics.com/%s' % strip_id
+  homepage_file = open_url(homepage_url)
+  parser = Parser()
+  parser.feed(homepage_file.read())
   parser.close()
-  item_file.close()
+  homepage_file.close()
 
-  return parser.image_url
+  if not parser.title:
+    return None, []
 
-title, items = get_feed_data(sys.argv[1])
+  today = datetime.date.today()
+  strip_urls = []
+  for i in range(0, 31):
+    strip_date = today - datetime.timedelta(days=i)
+    strip_url = '%s/%s' % (homepage_url, strip_date.strftime('%Y/%m/%d'))
+    strip_urls.append(strip_url)
+
+  return parser.title, strip_urls
+
+
+def get_strip_data(strip_url):
+  parser = Parser()
+  strip_file = open_url(strip_url)
+  parser.feed(strip_file.read())
+  parser.close()
+  strip_file.close()
+
+  return parser.title, parser.image_url
+
+
+title, strip_urls = get_homepage_data(sys.argv[1])
 
 print '<?xml version="1.0" encoding="utf-8"?>'
 print '<feed xmlns="http://www.w3.org/2005/Atom">'
 print '<title>%s</title>' % xml_escape(title)
 
-item_count = 0
-for item_title, item_url in items:
-  item_image_url = get_item_image_url(item_url)
-  if not item_image_url:
+strip_count = 0
+for strip_url in strip_urls:
+  strip_title, strip_image_url = get_strip_data(strip_url)
+  if not strip_image_url:
     continue
-  item_count += 1
+  strip_count += 1
   print '<entry>'
-  print '  <title>%s</title>' % xml_escape(item_title)
-  print '  <id>%s</id>' % item_url
-  print '  <link rel="alternate" href="%s" type="text/html"/>' % xml_escape(item_url)
+  print '  <title>%s</title>' % xml_escape(strip_title)
+  print '  <id>%s</id>' % strip_url
+  print '  <link rel="alternate" href="%s" type="text/html"/>' % xml_escape(strip_url)
   print '  <content type="xhtml">'
-  print '    <div xmlns="%s"><img src="%s"/></div>' % (XHTML_NS, xml_escape(item_image_url))
+  print '    <div xmlns="%s"><img src="%s"/></div>' % (XHTML_NS, xml_escape(strip_image_url))
   print '  </content>'
   print '</entry>'
 
-if not item_count:
+if not strip_count:
   print '<entry>'
   print '  <title>Could not scrape feed</title>'
   print '  <id>tag:persistent.info,2013:gocomics-scrape-%d</id>' % int(time.time())
