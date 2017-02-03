@@ -19,48 +19,27 @@ def open_url(url):
   return Opener().open(url)
 
 
-class Parser(htmllib.HTMLParser):
-  def __init__(self):
-    htmllib.HTMLParser.__init__(self, formatter.NullFormatter())
-    self.title = ''
-    self.in_title = False
-    self.image_url = None
-    self.in_comic_picture = False
-
-  def start_title(self, attrs):
-    self.in_title = True
-
-  def end_title(self):
-    self.in_title = False
-
-  def handle_data(self, data):
-    if self.in_title:
-      self.title += data
-      self.title = re.sub(r"\s*\|.*$", "", self.title)
-
-  def start_picture(self, attrs):
-    if ('class', 'img-fluid item-comic-image') in attrs:
-      self.in_comic_picture = True
-
-  def end_picture(self):
-    self.in_comic_picture = False
-
-  def do_img(self, attrs):
-    # Modernized gocomics.com strips with a <picture> element
-    if self.in_comic_picture:
-      if not self.image_url:
-        self.image_url = dict(attrs).get('src', None)
-      return
-    # Normal gocomics.com strips
-    if ('class', 'strip') in attrs:
-      self.image_url = dict(attrs).get('src', None)
-      return
-
-
 def get_homepage_data(strip_id):
+  class HomepageParser(htmllib.HTMLParser):
+    def __init__(self):
+      htmllib.HTMLParser.__init__(self, formatter.NullFormatter())
+      self.title = ''
+      self.in_title = False
+
+    def start_title(self, attrs):
+      self.in_title = True
+
+    def end_title(self):
+      self.in_title = False
+
+    def handle_data(self, data):
+      if self.in_title:
+        self.title += data
+        self.title = re.sub(r"\s*\|.*$", "", self.title)
+
   homepage_url = 'http://www.gocomics.com/%s' % strip_id
   homepage_file = open_url(homepage_url)
-  parser = Parser()
+  parser = HomepageParser()
   parser.feed(homepage_file.read())
   parser.close()
   homepage_file.close()
@@ -69,40 +48,65 @@ def get_homepage_data(strip_id):
     return None, []
 
   today = datetime.date.today()
-  strip_urls = []
+  strips = []
   for i in range(0, 31):
     strip_date = today - datetime.timedelta(days=i)
     strip_url = '%s/%s' % (homepage_url, strip_date.strftime('%Y/%m/%d'))
-    strip_urls.append(strip_url)
+    strips.append((strip_date, strip_url))
 
-  return parser.title, strip_urls
+  return parser.title, strips
 
 
-def get_strip_data(strip_url):
-  parser = Parser()
+def get_strip_image_url(strip_url):
+  class ImageParser(htmllib.HTMLParser):
+    def __init__(self):
+      htmllib.HTMLParser.__init__(self, formatter.NullFormatter())
+      self.image_url = None
+      self.in_comic_picture = False
+
+    def start_picture(self, attrs):
+      if ('class', 'img-fluid item-comic-image') in attrs:
+        self.in_comic_picture = True
+
+    def end_picture(self):
+      self.in_comic_picture = False
+
+    def do_img(self, attrs):
+      # Modernized gocomics.com strips with a <picture> element
+      if self.in_comic_picture:
+        if not self.image_url:
+          self.image_url = dict(attrs).get('src', None)
+        return
+      # Normal gocomics.com strips
+      if ('class', 'strip') in attrs:
+        self.image_url = dict(attrs).get('src', None)
+        return
+
+  parser = ImageParser()
   strip_file = open_url(strip_url)
   parser.feed(strip_file.read())
   parser.close()
   strip_file.close()
 
-  return parser.title, parser.image_url
+  return parser.image_url
 
 
-title, strip_urls = get_homepage_data(sys.argv[1])
+title, strips = get_homepage_data(sys.argv[1])
 
 print '<?xml version="1.0" encoding="utf-8"?>'
 print '<feed xmlns="http://www.w3.org/2005/Atom">'
 print '<title>%s</title>' % xml_escape(title)
 
 strip_count = 0
-for strip_url in strip_urls:
-  strip_title, strip_image_url = get_strip_data(strip_url)
+for strip_date, strip_url in strips:
+  strip_image_url = get_strip_image_url(strip_url)
   if not strip_image_url:
     continue
   strip_count += 1
   print '<entry>'
-  print '  <title>%s</title>' % xml_escape(strip_title)
+  print '  <title>%s</title>' % xml_escape(strip_date.strftime('%A, %B %d, %Y'))
   print '  <id>%s</id>' % strip_url
+  print '  <published>%sT12:00:00.000Z</published>' % strip_date.isoformat()
   print '  <link rel="alternate" href="%s" type="text/html"/>' % xml_escape(strip_url)
   print '  <content type="xhtml">'
   print '    <div xmlns="%s"><img src="%s"/></div>' % (XHTML_NS, xml_escape(strip_image_url))
