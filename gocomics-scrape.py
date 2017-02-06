@@ -13,7 +13,7 @@ from xml.sax.saxutils import escape as xml_escape
 XHTML_NS = 'http://www.w3.org/1999/xhtml'
 
 def open_url(url):
-  class Opener(urllib.FancyURLopener):
+  class Opener(urllib.URLopener):
     version = 'Mozilla/5.0 (compatible; Feedbot/1.0)'
 
   return Opener().open(url)
@@ -83,7 +83,15 @@ def get_strip_image_url(strip_url):
         return
 
   parser = ImageParser()
-  strip_file = open_url(strip_url)
+  try:
+    strip_file = open_url(strip_url)
+  except IOError as e:
+    if 302 in e.args:
+        # Skip over strip URLs that generate redirects, they must not have
+        # existed.
+        return None
+    else:
+        raise
   parser.feed(strip_file.read())
   parser.close()
   strip_file.close()
