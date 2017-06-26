@@ -2,6 +2,7 @@
 
 import datetime
 import formatter
+import logging
 import htmllib
 import re
 import sys
@@ -49,7 +50,7 @@ def get_homepage_data(strip_id):
 
   today = datetime.date.today()
   strips = []
-  for i in range(0, 31):
+  for i in range(0, 14):
     strip_date = today - datetime.timedelta(days=i)
     strip_url = '%s/%s' % (homepage_url, strip_date.strftime('%Y/%m/%d'))
     strips.append((strip_date, strip_url))
@@ -91,7 +92,8 @@ def get_strip_image_url(strip_url):
         # existed.
         return None
     else:
-        raise
+        logging.warn("Could not extract strip URL", exc_info=True)
+        return None
   parser.feed(strip_file.read())
   parser.close()
   strip_file.close()
