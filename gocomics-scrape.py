@@ -66,7 +66,7 @@ def get_strip_image_url(strip_url):
       self.in_comic_picture = False
 
     def start_picture(self, attrs):
-      if ('class', 'img-fluid item-comic-image') in attrs:
+      if ('class', 'item-comic-image') in attrs:
         self.in_comic_picture = True
 
     def end_picture(self):
@@ -75,8 +75,8 @@ def get_strip_image_url(strip_url):
     def do_img(self, attrs):
       # Modernized gocomics.com strips with a <picture> element
       if self.in_comic_picture:
-        if not self.image_url:
-          self.image_url = dict(attrs).get('src', None)
+        if not self.image_url and ('class'):
+          self.image_url = dict(attrs).get('data-srcset', None).split()[0]
         return
       # Normal gocomics.com strips
       if ('class', 'strip') in attrs:
