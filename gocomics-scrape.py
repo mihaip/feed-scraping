@@ -38,7 +38,7 @@ def get_homepage_data(strip_id):
         self.title += data
         self.title = re.sub(r"\s*\|.*$", "", self.title)
 
-  homepage_url = 'http://www.gocomics.com/%s' % strip_id
+  homepage_url = 'https://www.gocomics.com/%s' % strip_id
   homepage_file = open_url(homepage_url)
   parser = HomepageParser()
   parser.feed(homepage_file.read())
