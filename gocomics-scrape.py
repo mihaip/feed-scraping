@@ -1,37 +1,38 @@
 #!/usr/local/bin/python
 
 import datetime
-import formatter
 import logging
-import htmllib
+import html.parser
 import re
 import sys
 import time
-import urllib
-import xml.dom.minidom
+import urllib.request
 from xml.sax.saxutils import escape as xml_escape
 
 XHTML_NS = 'http://www.w3.org/1999/xhtml'
 
 def open_url(url):
-  class Opener(urllib.URLopener):
-    version = 'Mozilla/5.0 (compatible; Feedbot/1.0)'
+  req = urllib.request.Request(
+    url,
+    headers={'User-Agent': 'Mozilla/5.0 (compatible; Feedbot/1.0)'})
 
-  return Opener().open(url)
+  return urllib.request.urlopen(req)
 
 
 def get_homepage_data(strip_id):
-  class HomepageParser(htmllib.HTMLParser):
+  class HomepageParser(html.parser.HTMLParser):
     def __init__(self):
-      htmllib.HTMLParser.__init__(self, formatter.NullFormatter())
+      super().__init__()
       self.title = ''
       self.in_title = False
 
-    def start_title(self, attrs):
-      self.in_title = True
+    def handle_starttag(self, tag, attrs):
+      if tag == 'title':
+        self.in_title = True
 
-    def end_title(self):
-      self.in_title = False
+    def handle_endtag(self, tag):
+      if tag == 'title':
+        self.in_title = False
 
     def handle_data(self, data):
       if self.in_title:
@@ -41,7 +42,7 @@ def get_homepage_data(strip_id):
   homepage_url = 'https://www.gocomics.com/%s' % strip_id
   homepage_file = open_url(homepage_url)
   parser = HomepageParser()
-  parser.feed(homepage_file.read())
+  parser.feed(homepage_file.read().decode())
   parser.close()
   homepage_file.close()
 
@@ -59,29 +60,31 @@ def get_homepage_data(strip_id):
 
 
 def get_strip_image_url(strip_url):
-  class ImageParser(htmllib.HTMLParser):
+  class ImageParser(html.parser.HTMLParser):
     def __init__(self):
-      htmllib.HTMLParser.__init__(self, formatter.NullFormatter())
+      super().__init__()
       self.image_url = None
       self.in_comic_picture = False
 
-    def start_picture(self, attrs):
-      if ('class', 'item-comic-image') in attrs:
+    def handle_starttag(self, tag, attrs):
+      if tag == 'picture' and ('class', 'item-comic-image') in attrs:
         self.in_comic_picture = True
 
-    def end_picture(self):
-      self.in_comic_picture = False
+    def handle_endtag(self, tag):
+      if tag == 'picture':
+        self.in_comic_picture = False
 
-    def do_img(self, attrs):
-      # Modernized gocomics.com strips with a <picture> element
-      if self.in_comic_picture:
-        if not self.image_url and ('class'):
-          self.image_url = dict(attrs).get('data-srcset', None).split()[0]
-        return
-      # Normal gocomics.com strips
-      if ('class', 'strip') in attrs:
-        self.image_url = dict(attrs).get('src', None)
-        return
+    def handle_startendtag(self, tag, attrs):
+      if tag == 'img':
+        # Modernized gocomics.com strips with a <picture> element
+        if self.in_comic_picture:
+          if not self.image_url and ('class'):
+            self.image_url = dict(attrs).get('data-srcset', None).split()[0]
+          return
+        # Normal gocomics.com strips
+        if ('class', 'strip') in attrs:
+          self.image_url = dict(attrs).get('src', None)
+          return
 
   parser = ImageParser()
   try:
@@ -94,7 +97,7 @@ def get_strip_image_url(strip_url):
     else:
         logging.warn("Could not extract strip URL", exc_info=True)
         return None
-  parser.feed(strip_file.read())
+  parser.feed(strip_file.read().decode())
   parser.close()
   strip_file.close()
 
@@ -103,9 +106,9 @@ def get_strip_image_url(strip_url):
 
 title, strips = get_homepage_data(sys.argv[1])
 
-print '<?xml version="1.0" encoding="utf-8"?>'
-print '<feed xmlns="http://www.w3.org/2005/Atom">'
-print '<title>%s</title>' % xml_escape(title)
+print('<?xml version="1.0" encoding="utf-8"?>')
+print('<feed xmlns="http://www.w3.org/2005/Atom">')
+print('<title>%s</title>' % xml_escape(title))
 
 strip_count = 0
 for strip_date, strip_url in strips:
@@ -113,25 +116,25 @@ for strip_date, strip_url in strips:
   if not strip_image_url:
     continue
   strip_count += 1
-  print '<entry>'
-  print '  <title>%s</title>' % xml_escape(strip_date.strftime('%A, %B %d, %Y'))
-  print '  <id>%s</id>' % strip_url
-  print '  <published>%sT12:00:00.000Z</published>' % strip_date.isoformat()
-  print '  <link rel="alternate" href="%s" type="text/html"/>' % xml_escape(strip_url)
-  print '  <content type="xhtml">'
-  print '    <div xmlns="%s"><img src="%s"/></div>' % (XHTML_NS, xml_escape(strip_image_url))
-  print '  </content>'
-  print '</entry>'
+  print('<entry>')
+  print('  <title>%s</title>' % xml_escape(strip_date.strftime('%A, %B %d, %Y')))
+  print('  <id>%s</id>' % strip_url)
+  print('  <published>%sT12:00:00.000Z</published>' % strip_date.isoformat())
+  print('  <link rel="alternate" href="%s" type="text/html"/>' % xml_escape(strip_url))
+  print('  <content type="xhtml">')
+  print('    <div xmlns="%s"><img src="%s"/></div>' % (XHTML_NS, xml_escape(strip_image_url)))
+  print('  </content>')
+  print('</entry>')
 
 if not strip_count:
-  print '<entry>'
-  print '  <title>Could not scrape feed</title>'
-  print '  <id>tag:persistent.info,2013:gocomics-scrape-%d</id>' % int(time.time())
-  print '  <link rel="alternate" href="https://github.com/mihaip/feed-scraping" type="text/html"/>'
-  print '  <content type="html">'
-  print '    Could not scrape the feed. Check the GitHub repository for updates.'
-  print '  </content>'
-  print '</entry>'
+  print('<entry>')
+  print('  <title>Could not scrape feed</title>')
+  print('  <id>tag:persistent.info,2013:gocomics-scrape-%d</id>' % int(time.time()))
+  print('  <link rel="alternate" href="https://github.com/mihaip/feed-scraping" type="text/html"/>')
+  print('  <content type="html">')
+  print('    Could not scrape the feed. Check the GitHub repository for updates.')
+  print('  </content>')
+  print('</entry>')
 
 
-print '</feed>'
+print('</feed>')
