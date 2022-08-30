@@ -1,3 +1,9 @@
+## apple-technotes-scrape.py
+
+In early 2022 Apple launched [a new technotes site](https://developer.apple.com/documentation/Technotes). It's updated regularly, but does not have a feed. This script scrapes the JSON metadata for the catalog and generates a feed for it. Publication dates for the technotes are inferred based on the first time that a given note is seen.
+
+The scraped feed is published at [https://persistent.info/scraped/apple-technotes.xml](https://persistent.info/scraped/apple-technotes.xml).
+
 ## gocomics-scrape.py
 
 GoComics.com (which recently merged with Comics.com) has stopped linking to or updating their RSS feeds.
@@ -8,7 +14,7 @@ This script fetches a GoComics.com strip homepage, generates strip URLs and then
 
 I've put something like that in a cron job that runs once an hour.
 
-Incidentally, Frazz and Calvin and Hobbes are the comics that I wanted this for, so if you're looking for a full content feeds for them they can be found at [http://persistent.info/scraped/frazz.xml](http://persistent.info/scraped/frazz.xml) and [http://persistent.info/scraped/calvinandhobbes.xml](http://persistent.info/scraped/calvinandhobbes.xml).
+Incidentally, Frazz and Calvin and Hobbes are the comics that I wanted this for, so if you're looking for a full content feeds for them they can be found at [https://persistent.info/scraped/frazz.xml](https://persistent.info/scraped/frazz.xml) and [https://persistent.info/scraped/calvinandhobbes.xml](https://persistent.info/scraped/calvinandhobbes.xml).
 
 ## daily-puppy-scrape.py
 
