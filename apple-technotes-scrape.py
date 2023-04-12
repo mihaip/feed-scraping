@@ -24,6 +24,9 @@ def open_url(url):
 
   return urllib.request.urlopen(req)
 
+def get_segment_text(s):
+    return s.get("text") or s.get("code") or ""
+
 def fetch_technotes():
     with open_url("https://developer.apple.com/tutorials/data/documentation/Technotes.json") as f:
         technotes_json = json.load(f)
@@ -48,7 +51,7 @@ def fetch_technotes():
         technote = Technote(
             title=technote_json["title"],
             url=f"https://developer.apple.com{technote_json['url']}",
-            summary="".join([a["text"] for a in technote_json["abstract"]]),
+            summary="".join([get_segment_text(a) for a in technote_json["abstract"]]),
             published_date=published_date,
         )
         technotes.append(technote)
