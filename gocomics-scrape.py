@@ -76,13 +76,14 @@ def get_strip_image_url(strip_url):
 
     def handle_startendtag(self, tag, attrs):
       if tag == 'img':
+        class_name = dict(attrs).get('class', None)
         # Modernized gocomics.com strips with a <picture> element
         if self.in_comic_picture:
-          if not self.image_url and ('class'):
+          if not self.image_url:
             self.image_url = dict(attrs).get('data-srcset', None).split()[0]
           return
         # Normal gocomics.com strips
-        if ('class', 'strip') in attrs:
+        if class_name == 'strip' or (class_name and class_name.startswith('Comic_comic__image')):
           self.image_url = dict(attrs).get('src', None)
           return
 
