@@ -27,7 +27,7 @@ def get_homepage_data(strip_id):
       self.in_title = False
 
     def handle_starttag(self, tag, attrs):
-      if tag == 'title':
+      if tag == 'title' and not self.title:
         self.in_title = True
 
     def handle_endtag(self, tag):
@@ -64,28 +64,34 @@ def get_strip_image_url(strip_url):
     def __init__(self):
       super().__init__()
       self.image_url = None
-      self.in_comic_picture = False
+      self.in_comic_viewer = False
+      self.tag_attrs_stack = []
 
     def handle_starttag(self, tag, attrs):
-      if tag == 'picture' and ('class', 'item-comic-image') in attrs:
-        self.in_comic_picture = True
+      self.tag_attrs_stack.append(attrs)
+      if self.is_comic_viewer(tag, attrs):
+        if self.in_comic_viewer:
+          logging.warning("Nested comic viewer divs found")
+        self.in_comic_viewer = True
 
     def handle_endtag(self, tag):
-      if tag == 'picture':
-        self.in_comic_picture = False
+      attrs = self.tag_attrs_stack.pop()
+      if self.is_comic_viewer(tag, attrs):
+        self.in_comic_viewer = False
 
     def handle_startendtag(self, tag, attrs):
-      if tag == 'img':
-        class_name = dict(attrs).get('class', None)
-        # Modernized gocomics.com strips with a <picture> element
-        if self.in_comic_picture:
-          if not self.image_url:
-            self.image_url = dict(attrs).get('data-srcset', None).split()[0]
-          return
-        # Normal gocomics.com strips
-        if class_name == 'strip' or (class_name and class_name.startswith('Comic_comic__image')):
-          self.image_url = dict(attrs).get('src', None)
-          return
+      if self.in_comic_viewer and self.is_comic_image(tag, attrs):
+        if self.image_url:
+          logging.warning("Multiple comic image tags found")
+        self.image_url = dict(attrs).get('src', None)
+
+    def is_comic_viewer(self, tag, attrs):
+      class_name = dict(attrs).get('class', '')
+      return tag == 'div' and 'ComicViewer_comicViewer__comic' in class_name
+
+    def is_comic_image(self, tag, attrs):
+      class_name = dict(attrs).get('class', '')
+      return tag == 'img' and 'Comic_comic__image' in class_name
 
   parser = ImageParser()
   try:
@@ -96,7 +102,7 @@ def get_strip_image_url(strip_url):
         # existed.
         return None
     else:
-        logging.warn("Could not extract strip URL", exc_info=True)
+        logging.warning("Could not extract strip URL", exc_info=True)
         return None
   parser.feed(strip_file.read().decode())
   parser.close()
@@ -119,7 +125,7 @@ for strip_date, strip_url in strips:
   strip_count += 1
   print('<entry>')
   print('  <title>%s</title>' % xml_escape(strip_date.strftime('%A, %B %d, %Y')))
-  print('  <id>%s</id>' % strip_url)
+  print('  <id>%s</id>' % xml_escape(strip_url))
   print('  <published>%sT12:00:00.000Z</published>' % strip_date.isoformat())
   print('  <link rel="alternate" href="%s" type="text/html"/>' % xml_escape(strip_url))
   print('  <content type="xhtml">')
