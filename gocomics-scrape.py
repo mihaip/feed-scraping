@@ -1,6 +1,7 @@
 #!/usr/local/bin/python
 
 import datetime
+import http.client
 import logging
 import html.parser
 import re
@@ -55,7 +56,11 @@ def get_homepage_data(strip_id):
   homepage_url = 'https://www.gocomics.com/%s' % strip_id
   homepage_file = open_url(homepage_url)
   parser = HomepageParser()
-  parser.feed(homepage_file.read().decode())
+  try:
+    parser.feed(homepage_file.read().decode())
+  except http.client.IncompleteRead as e:
+    logging.warning("Incomplete read for homepage %s: %s", homepage_url, e)
+    parser.feed(e.partial.decode())
   parser.close()
   homepage_file.close()
 
@@ -97,7 +102,11 @@ def get_strip_image_url(strip_url):
     else:
         logging.warning("Could not extract strip URL", exc_info=True)
         return None
-  parser.feed(strip_file.read().decode())
+  try:
+    parser.feed(strip_file.read().decode())
+  except http.client.IncompleteRead as e:
+    logging.warning("Incomplete read for strip %s: %s", strip_url, e)
+    parser.feed(e.partial.decode())
   parser.close()
   strip_file.close()
 
