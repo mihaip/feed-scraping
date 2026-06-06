@@ -40,52 +40,51 @@ def get_homepage_data(strip_id):
       super().__init__()
       self.title = ''
       self.in_title = False
-      # Candidates for a feed-level image, so readers show the comic's icon.
+      # Preferred over <title>, which is now a generic "GoComics".
+      self.og_title = None
+      # Feed-level image candidates, in order of preference. The feature badge
+      # is square-ish; the og:image/twitter:image fallbacks are wide banners.
+      self.badge_image = None
       self.og_image = None
       self.twitter_image = None
-      self.apple_touch_icon = None
-      self.apple_touch_icon_size = -1
-      self.icon = None
 
     def handle_starttag(self, tag, attrs):
       if tag == 'title' and not self.title:
         self.in_title = True
       elif tag == 'meta':
         self.handle_meta(dict(attrs))
-      elif tag == 'link':
-        self.handle_link(dict(attrs))
+      elif tag == 'img':
+        self.handle_img(dict(attrs))
 
-    # Self-closing <meta/>/<link/> tags dispatch here, not to handle_starttag.
+    # Self-closing <meta/>/<img/> tags dispatch here, not to handle_starttag.
     def handle_startendtag(self, tag, attrs):
-      if tag in ('meta', 'link'):
+      if tag in ('meta', 'img'):
         self.handle_starttag(tag, attrs)
 
     def handle_meta(self, attrs):
       content = attrs.get('content')
       if not content:
         return
-      if attrs.get('property') == 'og:image' and not self.og_image:
+      if attrs.get('property') == 'og:title' and not self.og_title:
+        self.og_title = content
+      elif attrs.get('property') == 'og:image' and not self.og_image:
         self.og_image = content
       elif attrs.get('name') == 'twitter:image' and not self.twitter_image:
         self.twitter_image = content
 
-    def handle_link(self, attrs):
-      rels = (attrs.get('rel') or '').lower().split()
-      href = attrs.get('href')
-      if not href:
+    def handle_img(self, attrs):
+      # Only the current comic's badge is rendered as an <img> (sidebar
+      # recommendations live in inline JSON), so the first one is ours.
+      if self.badge_image:
         return
-      if 'apple-touch-icon' in rels:
-        # Prefer the largest one (e.g. sizes="180x180").
-        size = 0
-        sizes = attrs.get('sizes', '')
-        match = re.match(r'(\d+)', sizes)
-        if match:
-          size = int(match.group(1))
-        if size > self.apple_touch_icon_size:
-          self.apple_touch_icon = href
-          self.apple_touch_icon_size = size
-      elif 'icon' in rels and not self.icon:
-        self.icon = href
+      classes = (attrs.get('class') or '').split()
+      if not any('badge__image' in c for c in classes):
+        return
+      src = attrs.get('src') or attrs.get('srcset', '').split(' ')[0]
+      if src:
+        # src is a full-res asset; request a modest, feed-sized image instead.
+        self.badge_image = '%s?optimizer=image&width=256&quality=75' % (
+          src.split('?')[0])
 
     def handle_endtag(self, tag):
       if tag == 'title':
@@ -97,12 +96,16 @@ def get_homepage_data(strip_id):
         self.title = re.sub(r"\s*\|.*$", "", self.title)
 
     @property
-    def logo_url(self):
-      return self.og_image or self.twitter_image
+    def feed_title(self):
+      # og:title reads "Read <comic> by <author> on GoComics".
+      if self.og_title:
+        title = re.sub(r'^Read\s+', '', self.og_title)
+        return re.sub(r'\s+on GoComics$', '', title)
+      return self.title
 
     @property
-    def icon_url(self):
-      return self.apple_touch_icon or self.icon
+    def logo_url(self):
+      return self.badge_image or self.og_image or self.twitter_image
 
   homepage_url = 'https://www.gocomics.com/%s' % strip_id
   homepage_file = open_url(homepage_url)
@@ -115,11 +118,11 @@ def get_homepage_data(strip_id):
   parser.close()
   homepage_file.close()
 
-  if not parser.title:
-    return None, None, None, homepage_url, []
+  if not parser.feed_title:
+    return None, None, homepage_url, []
 
-  # Resolve root-relative hrefs (e.g. "/apple-touch-icon.png") against GoComics,
-  # since readers resolve relative <logo>/<icon> against the (different) feed URL.
+  # Resolve root-relative hrefs against GoComics, since readers resolve a
+  # relative <logo> against the (different) feed URL.
   def absolute(url):
     return urllib.parse.urljoin(homepage_url, url) if url else None
 
@@ -130,8 +133,7 @@ def get_homepage_data(strip_id):
     strip_url = '%s/%s' % (homepage_url, strip_date.strftime('%Y/%m/%d'))
     strips.append((strip_date, strip_url))
 
-  return (parser.title, absolute(parser.logo_url), absolute(parser.icon_url),
-          homepage_url, strips)
+  return parser.feed_title, absolute(parser.logo_url), homepage_url, strips
 
 
 def get_strip_image_url(strip_url):
@@ -170,17 +172,15 @@ def get_strip_image_url(strip_url):
   return parser.image_url
 
 
-title, logo_url, icon_url, homepage_url, strips = get_homepage_data(sys.argv[1])
+title, logo_url, homepage_url, strips = get_homepage_data(sys.argv[1])
 
 print('<?xml version="1.0" encoding="utf-8"?>')
 print('<feed xmlns="http://www.w3.org/2005/Atom">')
 print('<title>%s</title>' % xml_escape(title))
 print('<link rel="alternate" href="%s" type="text/html"/>' % xml_escape(homepage_url))
-# Feed-level image; readers use <logo> for the feed icon, falling back to <icon>.
+# Feed-level image; readers use <logo> for the feed icon.
 if logo_url:
   print('<logo>%s</logo>' % xml_escape(logo_url))
-if icon_url:
-  print('<icon>%s</icon>' % xml_escape(icon_url))
 
 strip_count = 0
 for strip_date, strip_url in strips:
