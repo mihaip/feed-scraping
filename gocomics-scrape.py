@@ -40,9 +40,7 @@ def get_homepage_data(strip_id):
       super().__init__()
       self.title = ''
       self.in_title = False
-      # Per-comic image candidates, used to generate a feed-level image so
-      # that readers (e.g. NetNewsWire) show the comic's icon instead of
-      # falling back to the favicon of the site that hosts the scraped feed.
+      # Candidates for a feed-level image, so readers show the comic's icon.
       self.og_image = None
       self.twitter_image = None
       self.apple_touch_icon = None
@@ -57,8 +55,7 @@ def get_homepage_data(strip_id):
       elif tag == 'link':
         self.handle_link(dict(attrs))
 
-    # GoComics serves self-closing <meta/>/<link/> tags, which the parser
-    # dispatches here rather than to handle_starttag.
+    # Self-closing <meta/>/<link/> tags dispatch here, not to handle_starttag.
     def handle_startendtag(self, tag, attrs):
       if tag in ('meta', 'link'):
         self.handle_starttag(tag, attrs)
@@ -78,7 +75,7 @@ def get_homepage_data(strip_id):
       if not href:
         return
       if 'apple-touch-icon' in rels:
-        # Prefer the largest available apple-touch-icon (e.g. sizes="180x180").
+        # Prefer the largest one (e.g. sizes="180x180").
         size = 0
         sizes = attrs.get('sizes', '')
         match = re.match(r'(\d+)', sizes)
@@ -99,12 +96,10 @@ def get_homepage_data(strip_id):
         self.title += data
         self.title = re.sub(r"\s*\|.*$", "", self.title)
 
-    # The larger, representative per-comic image (Atom <logo>).
     @property
     def logo_url(self):
       return self.og_image or self.twitter_image
 
-    # The favicon-sized per-comic image (Atom <icon>).
     @property
     def icon_url(self):
       return self.apple_touch_icon or self.icon
@@ -123,10 +118,8 @@ def get_homepage_data(strip_id):
   if not parser.title:
     return None, None, None, homepage_url, []
 
-  # Image URLs (especially apple-touch-icon / rel=icon) may be root-relative,
-  # e.g. "/apple-touch-icon.png". The feed is hosted on a different domain, and
-  # readers resolve relative Atom <logo>/<icon> against the feed URL, so make
-  # them absolute against the comic homepage before emitting.
+  # Resolve root-relative hrefs (e.g. "/apple-touch-icon.png") against GoComics,
+  # since readers resolve relative <logo>/<icon> against the (different) feed URL.
   def absolute(url):
     return urllib.parse.urljoin(homepage_url, url) if url else None
 
@@ -183,9 +176,7 @@ print('<?xml version="1.0" encoding="utf-8"?>')
 print('<feed xmlns="http://www.w3.org/2005/Atom">')
 print('<title>%s</title>' % xml_escape(title))
 print('<link rel="alternate" href="%s" type="text/html"/>' % xml_escape(homepage_url))
-# Feed-level image. NetNewsWire (and other readers) use the Atom <logo> as the
-# feed's icon, falling back to <icon>; without these it would show the favicon
-# of the site hosting this scraped feed instead of the comic's own image.
+# Feed-level image; readers use <logo> for the feed icon, falling back to <icon>.
 if logo_url:
   print('<logo>%s</logo>' % xml_escape(logo_url))
 if icon_url:
