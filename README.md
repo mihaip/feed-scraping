@@ -8,7 +8,7 @@ The scraped feed is published at [https://persistent.info/scraped/apple-technote
 
 GoComics.com (which recently merged with Comics.com) has stopped linking to or updating their RSS feeds.
 
-This script fetches a GoComics.com strip homepage, generates strip URLs and then for each one looks up the the actual comic image and outputs a minimal Atom feed with the image. It also extracts a per-comic image from the homepage (`og:image`, falling back to `twitter:image`/`apple-touch-icon`) and emits it as the Atom feed's `<logo>`/`<icon>`, so that readers like NetNewsWire show the comic's own icon for the feed instead of falling back to the favicon of the site hosting the scraped feed. Sample usage:
+This script fetches a GoComics.com strip homepage, generates strip URLs and then for each one looks up the the actual comic image and outputs a minimal Atom feed with the image. Sample usage:
 
     python gocomics-scrape.py frazz > ~/www/scraped/frazz.xml
 
