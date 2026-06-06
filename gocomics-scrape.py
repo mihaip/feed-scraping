@@ -39,10 +39,55 @@ def get_homepage_data(strip_id):
       super().__init__()
       self.title = ''
       self.in_title = False
+      # Per-comic image candidates, used to generate a feed-level image so
+      # that readers (e.g. NetNewsWire) show the comic's icon instead of
+      # falling back to the favicon of the site that hosts the scraped feed.
+      self.og_image = None
+      self.twitter_image = None
+      self.apple_touch_icon = None
+      self.apple_touch_icon_size = -1
+      self.icon = None
 
     def handle_starttag(self, tag, attrs):
       if tag == 'title' and not self.title:
         self.in_title = True
+      elif tag == 'meta':
+        self.handle_meta(dict(attrs))
+      elif tag == 'link':
+        self.handle_link(dict(attrs))
+
+    # GoComics serves self-closing <meta/>/<link/> tags, which the parser
+    # dispatches here rather than to handle_starttag.
+    def handle_startendtag(self, tag, attrs):
+      if tag in ('meta', 'link'):
+        self.handle_starttag(tag, attrs)
+
+    def handle_meta(self, attrs):
+      content = attrs.get('content')
+      if not content:
+        return
+      if attrs.get('property') == 'og:image' and not self.og_image:
+        self.og_image = content
+      elif attrs.get('name') == 'twitter:image' and not self.twitter_image:
+        self.twitter_image = content
+
+    def handle_link(self, attrs):
+      rels = (attrs.get('rel') or '').lower().split()
+      href = attrs.get('href')
+      if not href:
+        return
+      if 'apple-touch-icon' in rels:
+        # Prefer the largest available apple-touch-icon (e.g. sizes="180x180").
+        size = 0
+        sizes = attrs.get('sizes', '')
+        match = re.match(r'(\d+)', sizes)
+        if match:
+          size = int(match.group(1))
+        if size > self.apple_touch_icon_size:
+          self.apple_touch_icon = href
+          self.apple_touch_icon_size = size
+      elif 'icon' in rels and not self.icon:
+        self.icon = href
 
     def handle_endtag(self, tag):
       if tag == 'title':
@@ -52,6 +97,16 @@ def get_homepage_data(strip_id):
       if self.in_title:
         self.title += data
         self.title = re.sub(r"\s*\|.*$", "", self.title)
+
+    # The larger, representative per-comic image (Atom <logo>).
+    @property
+    def logo_url(self):
+      return self.og_image or self.twitter_image
+
+    # The favicon-sized per-comic image (Atom <icon>).
+    @property
+    def icon_url(self):
+      return self.apple_touch_icon or self.icon
 
   homepage_url = 'https://www.gocomics.com/%s' % strip_id
   homepage_file = open_url(homepage_url)
@@ -65,7 +120,7 @@ def get_homepage_data(strip_id):
   homepage_file.close()
 
   if not parser.title:
-    return None, []
+    return None, None, None, homepage_url, []
 
   today = datetime.date.today()
   strips = []
@@ -74,7 +129,7 @@ def get_homepage_data(strip_id):
     strip_url = '%s/%s' % (homepage_url, strip_date.strftime('%Y/%m/%d'))
     strips.append((strip_date, strip_url))
 
-  return parser.title, strips
+  return parser.title, parser.logo_url, parser.icon_url, homepage_url, strips
 
 
 def get_strip_image_url(strip_url):
@@ -113,11 +168,19 @@ def get_strip_image_url(strip_url):
   return parser.image_url
 
 
-title, strips = get_homepage_data(sys.argv[1])
+title, logo_url, icon_url, homepage_url, strips = get_homepage_data(sys.argv[1])
 
 print('<?xml version="1.0" encoding="utf-8"?>')
 print('<feed xmlns="http://www.w3.org/2005/Atom">')
 print('<title>%s</title>' % xml_escape(title))
+print('<link rel="alternate" href="%s" type="text/html"/>' % xml_escape(homepage_url))
+# Feed-level image. NetNewsWire (and other readers) use the Atom <logo> as the
+# feed's icon, falling back to <icon>; without these it would show the favicon
+# of the site hosting this scraped feed instead of the comic's own image.
+if logo_url:
+  print('<logo>%s</logo>' % xml_escape(logo_url))
+if icon_url:
+  print('<icon>%s</icon>' % xml_escape(icon_url))
 
 strip_count = 0
 for strip_date, strip_url in strips:
