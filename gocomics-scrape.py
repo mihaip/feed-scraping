@@ -7,6 +7,7 @@ import html.parser
 import re
 import sys
 import time
+import urllib.parse
 import urllib.request
 from xml.sax.saxutils import escape as xml_escape
 
@@ -122,6 +123,13 @@ def get_homepage_data(strip_id):
   if not parser.title:
     return None, None, None, homepage_url, []
 
+  # Image URLs (especially apple-touch-icon / rel=icon) may be root-relative,
+  # e.g. "/apple-touch-icon.png". The feed is hosted on a different domain, and
+  # readers resolve relative Atom <logo>/<icon> against the feed URL, so make
+  # them absolute against the comic homepage before emitting.
+  def absolute(url):
+    return urllib.parse.urljoin(homepage_url, url) if url else None
+
   today = datetime.date.today()
   strips = []
   for i in range(0, 14):
@@ -129,7 +137,8 @@ def get_homepage_data(strip_id):
     strip_url = '%s/%s' % (homepage_url, strip_date.strftime('%Y/%m/%d'))
     strips.append((strip_date, strip_url))
 
-  return parser.title, parser.logo_url, parser.icon_url, homepage_url, strips
+  return (parser.title, absolute(parser.logo_url), absolute(parser.icon_url),
+          homepage_url, strips)
 
 
 def get_strip_image_url(strip_url):
