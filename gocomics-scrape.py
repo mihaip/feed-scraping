@@ -4,6 +4,8 @@ import datetime
 import http.client
 import logging
 import html.parser
+import json
+import os
 import re
 import sys
 import time
@@ -126,7 +128,9 @@ def get_homepage_data(strip_id):
   def absolute(url):
     return urllib.parse.urljoin(homepage_url, url) if url else None
 
-  today = datetime.date.today()
+  # UTC gives us a consistent upper bound regardless of the server timezone.
+  # Each candidate is checked against the returned page before publication.
+  today = datetime.datetime.now(datetime.timezone.utc).date()
   strips = []
   for i in range(0, 14):
     strip_date = today - datetime.timedelta(days=i)
@@ -141,27 +145,41 @@ def get_strip_image_url(strip_url):
     def __init__(self):
       super().__init__()
       self.image_url = None
+      self.page_urls = []
 
-    def handle_startendtag(self, tag, attrs):
+    def handle_starttag(self, tag, attrs):
+      attrs_dict = dict(attrs)
       if tag == "meta":
-        attrs_dict = dict(attrs)
         if attrs_dict.get('property') == 'og:image' and attrs_dict.get('content'):
           if self.image_url:
             logging.warning("Multiple image tags found")
           self.image_url = attrs_dict["content"]
+        elif attrs_dict.get('property') == 'og:url' and attrs_dict.get('content'):
+          self.page_urls.append(attrs_dict['content'])
+      elif tag == 'link' and 'canonical' in attrs_dict.get('rel', '').split():
+        if attrs_dict.get('href'):
+          self.page_urls.append(attrs_dict['href'])
+
+    def handle_startendtag(self, tag, attrs):
+      self.handle_starttag(tag, attrs)
+
+  def matches_requested_strip(url):
+    return (urllib.parse.urlsplit(urllib.parse.urljoin(strip_url, url)).path.rstrip('/') ==
+            urllib.parse.urlsplit(strip_url).path.rstrip('/'))
 
   parser = ImageParser()
   try:
     strip_file = open_url(strip_url)
-  except IOError as e:
-    if 302 in e.args:
-        # Skip over strip URLs that generate redirects, they must not have
-        # existed.
-        return None
-    else:
-        logging.warning("Could not extract strip URL", exc_info=True)
-        return None
+  except IOError:
+    logging.warning("Could not extract strip URL", exc_info=True)
+    return None
   try:
+    # urllib follows redirects automatically, so a missing strip can appear
+    # to succeed even when it redirects to the latest available strip.
+    if not matches_requested_strip(strip_file.geturl()):
+      logging.warning("Skipping redirected strip %s: %s", strip_url, strip_file.geturl())
+      strip_file.close()
+      return None
     parser.feed(strip_file.read().decode())
   except http.client.IncompleteRead as e:
     logging.warning("Incomplete read for strip %s: %s", strip_url, e)
@@ -169,10 +187,25 @@ def get_strip_image_url(strip_url):
   parser.close()
   strip_file.close()
 
+  # GoComics also serves the latest strip at unpublished dates with HTTP 200
+  # and no redirect. Its canonical/og:url metadata identifies the actual day.
+  # Require a match before giving an image a permanent dated Atom entry ID.
+  if not parser.page_urls or not all(matches_requested_strip(url) for url in parser.page_urls):
+    logging.warning("Skipping unverified strip %s: page URLs %s", strip_url, parser.page_urls)
+    return None
+
   return parser.image_url
 
 
 title, logo_url, homepage_url, strips = get_homepage_data(sys.argv[1])
+
+image_cache_path = os.path.join(os.path.dirname(__file__), 'gocomics-%s-images.json' % sys.argv[1])
+try:
+  with open(image_cache_path) as f:
+    image_cache = json.load(f)
+except FileNotFoundError:
+  image_cache = {}
+image_cache_changed = False
 
 print('<?xml version="1.0" encoding="utf-8"?>')
 print('<feed xmlns="http://www.w3.org/2005/Atom">')
@@ -184,7 +217,12 @@ if logo_url:
 
 strip_count = 0
 for strip_date, strip_url in strips:
-  strip_image_url = get_strip_image_url(strip_url)
+  strip_image_url = image_cache.get(strip_url)
+  if not strip_image_url:
+    strip_image_url = get_strip_image_url(strip_url)
+    if strip_image_url:
+      image_cache[strip_url] = strip_image_url
+      image_cache_changed = True
   if not strip_image_url:
     continue
   strip_count += 1
@@ -197,6 +235,11 @@ for strip_date, strip_url in strips:
   print('    <div xmlns="%s"><img src="%s"/></div>' % (XHTML_NS, xml_escape(strip_image_url)))
   print('  </content>')
   print('</entry>')
+
+if image_cache_changed:
+  with open(image_cache_path + '.tmp', 'w') as f:
+    json.dump(image_cache, f, indent=2)
+  os.replace(image_cache_path + '.tmp', image_cache_path)
 
 if not strip_count:
   print('<entry>')
