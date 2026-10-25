@@ -4,6 +4,12 @@ In early 2022 Apple launched [a new technotes site](https://developer.apple.com/
 
 The scraped feed is published at [https://persistent.info/scraped/apple-technotes.xml](https://persistent.info/scraped/apple-technotes.xml).
 
+## chm-apple
+
+A podcast feed of Computer History Museum [oral histories](https://computerhistory.org/oral-histories/) featuring Apple and NeXT employees, dated by their original interview recording dates.
+
+[RSS feed](https://github.com/mihaip/feed-scraping/releases/download/chm-apple/chm-apple.xml) · [Companion YouTube playlist](https://www.youtube.com/playlist?list=PLd8A9AOrb7Zo) · [Tool documentation](chm-apple/README.md).
+
 ## gocomics-scrape.py
 
 GoComics.com (which recently merged with Comics.com) has stopped linking to or updating their RSS feeds.
